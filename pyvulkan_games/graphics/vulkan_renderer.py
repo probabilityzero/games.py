@@ -33,7 +33,11 @@ class VulkanRenderer:
         pass
     def present(self):
         if self.window:
-            glfw.swap_buffers(self.window)
+            try:
+                if glfw.get_current_context():
+                    glfw.swap_buffers(self.window)
+            except Exception:
+                pass
     def cleanup(self):
         if self.window:
             glfw.destroy_window(self.window)

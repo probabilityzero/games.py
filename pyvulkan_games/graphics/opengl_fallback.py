@@ -46,6 +46,17 @@ class OpenGLRenderer:
             gl.glVertex2f(x + size, y + size)
             gl.glVertex2f(x, y + size)
             gl.glEnd()
+
+    def draw_rects(self, rects):
+        for x, y, w, h, col in rects:
+            r, g, b = col
+            gl.glColor3f(r, g, b)
+            gl.glBegin(gl.GL_QUADS)
+            gl.glVertex2f(x, y)
+            gl.glVertex2f(x + w, y)
+            gl.glVertex2f(x + w, y + h)
+            gl.glVertex2f(x, y + h)
+            gl.glEnd()
     def present(self):
         if self.window:
             glfw.swap_buffers(self.window)

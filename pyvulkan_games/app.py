@@ -33,9 +33,24 @@ class App:
         ogl = OpenGLRenderer(self.width, self.height)
         ogl.init_window()
         self.renderer = ogl
+
+    def _on_key(self, window, key, scancode, action, mods):
+        if action not in (glfw.PRESS, glfw.REPEAT):
+            return
+        if key in (glfw.KEY_RIGHT, glfw.KEY_D):
+            self.snake.set_dir(1, 0)
+        elif key in (glfw.KEY_LEFT, glfw.KEY_A):
+            self.snake.set_dir(-1, 0)
+        elif key in (glfw.KEY_UP, glfw.KEY_W):
+            self.snake.set_dir(0, 1)
+        elif key in (glfw.KEY_DOWN, glfw.KEY_S):
+            self.snake.set_dir(0, -1)
     def run(self):
         self.choose_backend()
         self.snake = SnakePrototype(self.width, self.height)
+        glfw.set_key_callback(self.renderer.window, self._on_key)
+        step_interval = 0.1
+        last_step = time.time()
         while not glfw.window_should_close(self.renderer.window):
             start = time.time()
             glfw.poll_events()
@@ -61,16 +76,10 @@ class App:
                 except Exception:
                     pass
             print(f"FPS:{self.fps} GPU:{gpu_info}", end="\r")
-            keys = glfw.get_key(self.renderer.window, glfw.KEY_RIGHT), glfw.get_key(self.renderer.window, glfw.KEY_LEFT), glfw.get_key(self.renderer.window, glfw.KEY_UP), glfw.get_key(self.renderer.window, glfw.KEY_DOWN)
-            if keys[0] == glfw.PRESS:
-                self.snake.set_dir(1, 0)
-            if keys[1] == glfw.PRESS:
-                self.snake.set_dir(-1, 0)
-            if keys[2] == glfw.PRESS:
-                self.snake.set_dir(0, 1)
-            if keys[3] == glfw.PRESS:
-                self.snake.set_dir(0, -1)
-            self.snake.step()
+            now = time.time()
+            if now - last_step >= step_interval:
+                self.snake.step()
+                last_step = now
             try:
                 self.renderer.draw_snake(self.snake.positions, size=self.snake.size)
             except Exception:
