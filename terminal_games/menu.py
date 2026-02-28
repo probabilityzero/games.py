@@ -1,5 +1,5 @@
 import curses
-from constants import SNAKE_ART, DEFAULT_CONFIG
+from terminal_games.constants import SNAKE_ART, DEFAULT_CONFIG
 
 # --- Utility functions (no changes) ---
 def safe_addstr(stdscr, y, x, text, color=None):

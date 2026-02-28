@@ -5,8 +5,8 @@ import time
 import json
 import os
 import winsound  # For Windows sound
-from constants import SNAKE_SEGMENTS, DEFAULT_CONFIG, CONFIG_FILE, SNAKE_ART, FOOD_CHAR, BONUS_FOOD_CHAR, HORIZONTAL_BORDER_CHAR, VERTICAL_BORDER_CHAR
-from menu import show_options_menu, show_help_screen  # For menu interactions
+from terminal_games.constants import SNAKE_SEGMENTS, DEFAULT_CONFIG, CONFIG_FILE, SNAKE_ART, FOOD_CHAR, BONUS_FOOD_CHAR, HORIZONTAL_BORDER_CHAR, VERTICAL_BORDER_CHAR
+from terminal_games.menu import show_options_menu, show_help_screen  # For menu interactions
 
 # --- Utility Functions (within main.py) ---
 def safe_addstr(stdscr, y, x, text, color=None):
