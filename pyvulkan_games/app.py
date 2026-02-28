@@ -1,4 +1,5 @@
 import time
+import os
 import glfw
 from .graphics import VulkanRenderer, OpenGLRenderer
 from .snake import SnakePrototype
@@ -19,7 +20,7 @@ class App:
     def choose_backend(self):
         vk = VulkanRenderer()
         vk.init_vulkan()
-        if vk.vk_available:
+        if vk.vk_available and os.environ.get("VULKAN_SDK"):
             try:
                 vk.init_window()
                 self.renderer = vk
