@@ -1,0 +1,12 @@
+vulkan
+glfw
+numpy
+pyrr
+pillow
+dearpygui
+GPUtil
+pynvml
+psutil
+PyOpenGL
+curses
+winsound
