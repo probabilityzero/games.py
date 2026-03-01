@@ -229,6 +229,27 @@ class SnakeGame:
                 }
 
                 self.renderer.draw_shader_from_files(shader_path, time_sec=t, mouse=mouse)
+
+                # HUD lines
+                head = self.segments[0] if len(self.segments)>0 else (0.0,0.0,0.0)
+                dist_food = 0.0
+                if self.food:
+                    import math
+                    dx = head[0]-self.food[0]
+                    dy = head[1]-self.food[1]
+                    dz = head[2]-self.food[2]
+                    dist_food = math.sqrt(dx*dx+dy*dy+dz*dz)
+                lines = [
+                    f"Shader: {'ON' if getattr(self,'_shader_on',True) else 'OFF'}",
+                    f"Segments: {len(self.segments)}",
+                    f"Head: {head[0]:.2f}, {head[1]:.2f}, {head[2]:.2f}",
+                    f"Food dist: {dist_food:.2f}",
+                    f"Speed: {self.speed:.2f}",
+                ]
+                try:
+                    self.renderer.draw_hud(lines)
+                except Exception:
+                    pass
             except Exception:
                 from OpenGL import GL as gl
                 gl.glClearColor(0.03, 0.03, 0.05, 1.0)

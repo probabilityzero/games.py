@@ -287,6 +287,93 @@ void main(){ gl_Position = gl_Vertex; }
 
         gl.glDisable(gl.GL_DEPTH_TEST)
 
+    def _try_init_glut(self):
+        try:
+            from OpenGL import GLUT as glut
+            return glut
+        except Exception:
+            return None
+
+    def draw_text(self, x, y, text, size=18, color=(1.0,1.0,1.0)):
+        glut = self._try_init_glut()
+        if not glut:
+            return False
+        from OpenGL import GL as gl
+        gl.glMatrixMode(gl.GL_PROJECTION)
+        gl.glPushMatrix()
+        gl.glLoadIdentity()
+        gl.glOrtho(0, self.width, 0, self.height, -1, 1)
+        gl.glMatrixMode(gl.GL_MODELVIEW)
+        gl.glPushMatrix()
+        gl.glLoadIdentity()
+        gl.glDisable(gl.GL_DEPTH_TEST)
+        r,g,b = color
+        gl.glColor3f(r,g,b)
+        gl.glRasterPos2f(x, y)
+        for ch in text:
+            try:
+                glut.glutBitmapCharacter(glut.GLUT_BITMAP_HELVETICA_18, ord(ch))
+            except Exception:
+                pass
+        gl.glPopMatrix()
+        gl.glMatrixMode(gl.GL_PROJECTION)
+        gl.glPopMatrix()
+        gl.glMatrixMode(gl.GL_MODELVIEW)
+        return True
+
+    def draw_hud(self, lines):
+        # draw translucent background and text lines (top-left)
+        from OpenGL import GL as gl
+        # orthographic overlay
+        gl.glMatrixMode(gl.GL_PROJECTION)
+        gl.glPushMatrix()
+        gl.glLoadIdentity()
+        gl.glOrtho(0, self.width, 0, self.height, -1, 1)
+        gl.glMatrixMode(gl.GL_MODELVIEW)
+        gl.glPushMatrix()
+        gl.glLoadIdentity()
+
+        # background box
+        pad = 8
+        line_h = 20
+        w = 300
+        h = line_h * len(lines) + pad*2
+        x = 8
+        y = self.height - h - 8
+        gl.glEnable(gl.GL_BLEND)
+        gl.glBlendFunc(gl.GL_SRC_ALPHA, gl.GL_ONE_MINUS_SRC_ALPHA)
+        gl.glColor4f(0.03, 0.03, 0.05, 0.7)
+        gl.glBegin(gl.GL_QUADS)
+        gl.glVertex2f(x, y)
+        gl.glVertex2f(x + w, y)
+        gl.glVertex2f(x + w, y + h)
+        gl.glVertex2f(x, y + h)
+        gl.glEnd()
+        gl.glDisable(gl.GL_BLEND)
+
+        # draw lines of text using GLUT if available, else set window title as fallback
+        drawn = False
+        try:
+            glut = self._try_init_glut()
+            if glut:
+                for i, line in enumerate(lines):
+                    self.draw_text(x + pad, y + h - pad - (i+1)*line_h + 4, line)
+                drawn = True
+        except Exception:
+            drawn = False
+
+        gl.glPopMatrix()
+        gl.glMatrixMode(gl.GL_PROJECTION)
+        gl.glPopMatrix()
+        gl.glMatrixMode(gl.GL_MODELVIEW)
+
+        if not drawn and hasattr(self, 'window') and self.window:
+            try:
+                title = ' | '.join(lines[:3])
+                glfw.set_window_title(self.window, title)
+            except Exception:
+                pass
+
     def draw_rects(self, rects):
         for x, y, w, h, col in rects:
             r, g, b = col
