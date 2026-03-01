@@ -23,7 +23,7 @@ def main():
             start = time.time()
             glfw.poll_events()
             if glfw.get_key(render.window, glfw.KEY_W) == glfw.PRESS:
-                pong.move_left(s-8)
+                pong.move_left(-8)
             if glfw.get_key(render.window, glfw.KEY_S) == glfw.PRESS:
                 pong.move_left(8)
             if glfw.get_key(render.window, glfw.KEY_UP) == glfw.PRESS:

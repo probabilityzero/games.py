@@ -82,21 +82,19 @@ class OpenGLRenderer:
         return prog
 
     def draw_shader_from_files(self, frag_path, time_sec=0.0, mouse=(0,0,0,0)):
-        # load fragment shader and use a simple passthrough vertex shader
         if not os.path.exists(frag_path):
             raise FileNotFoundError(frag_path)
         with open(frag_path, 'r', encoding='utf-8') as f:
             frag_src = f.read()
 
         vert_src = """
-        #version 120
-        void main(){ gl_Position = gl_Vertex; }
-        """
+#version 120
+void main(){ gl_Position = gl_Vertex; }
+"""
 
         prog = self._compile_shader(vert_src, frag_src)
         gl.glUseProgram(prog)
 
-        # set common uniforms if present
         loc = gl.glGetUniformLocation(prog, 'iResolution')
         if loc != -1:
             gl.glUniform2f(loc, float(self.width), float(self.height))
@@ -108,11 +106,62 @@ class OpenGLRenderer:
             x, y, b1, b2 = mouse
             gl.glUniform4f(loc, float(x), float(y), float(b1), float(b2))
 
+        extra_uniforms = getattr(self, '_extra_uniforms', None)
+        if extra_uniforms:
+            for name, val in extra_uniforms.items():
+                loc = gl.glGetUniformLocation(prog, name)
+                if loc == -1:
+                    continue
+                if isinstance(val, float):
+                    gl.glUniform1f(loc, val)
+                elif isinstance(val, int):
+                    gl.glUniform1i(loc, val)
+                elif isinstance(val, tuple) or isinstance(val, list):
+                    ln = len(val)
+                    if ln == 2 and all(isinstance(x, (float, int)) for x in val):
+                        gl.glUniform2f(loc, float(val[0]), float(val[1]))
+                    elif ln == 3:
+                        gl.glUniform3f(loc, float(val[0]), float(val[1]), float(val[2]))
+                    elif ln == 4:
+                        gl.glUniform4f(loc, float(val[0]), float(val[1]), float(val[2]), float(val[3]))
+                    else:
+                        # vec2 array
+                        if all(isinstance(x, (tuple, list)) and len(x) == 2 for x in val):
+                            flat = []
+                            for v in val:
+                                flat.extend([float(v[0]), float(v[1])])
+                            try:
+                                from OpenGL.arrays import vbo
+                                import numpy as _np
+                                arr = _np.array(flat, dtype=_np.float32)
+                                gl.glUniform2fv(loc, int(len(flat)//2), arr)
+                            except Exception:
+                                try:
+                                    for idx, v in enumerate(val):
+                                        loci = gl.glGetUniformLocation(prog, f"{name}[{idx}]")
+                                        if loci != -1:
+                                            gl.glUniform2f(loci, float(v[0]), float(v[1]))
+                                except Exception:
+                                    pass
+                        # vec3 array
+                        elif all(isinstance(x, (tuple, list)) and len(x) == 3 for x in val):
+                            flat = []
+                            for v in val:
+                                flat.extend([float(v[0]), float(v[1]), float(v[2])])
+                            try:
+                                import numpy as _np
+                                arr = _np.array(flat, dtype=_np.float32)
+                                gl.glUniform3fv(loc, int(len(flat)//3), arr)
+                            except Exception:
+                                try:
+                                    for idx, v in enumerate(val):
+                                        loci = gl.glGetUniformLocation(prog, f"{name}[{idx}]")
+                                        if loci != -1:
+                                            gl.glUniform3f(loci, float(v[0]), float(v[1]), float(v[2]))
+                                except Exception:
+                                    pass
 
-        # draw full-screen quad using immediate mode for compatibility
-        # ensure viewport correct
         gl.glViewport(0, 0, int(self.width), int(self.height))
-        # ensure color buffer present when shader runs
         gl.glClear(gl.GL_COLOR_BUFFER_BIT | gl.GL_DEPTH_BUFFER_BIT)
         gl.glMatrixMode(gl.GL_PROJECTION)
         gl.glPushMatrix()
@@ -134,6 +183,8 @@ class OpenGLRenderer:
         gl.glMatrixMode(gl.GL_MODELVIEW)
 
         gl.glUseProgram(0)
+        if hasattr(self, '_extra_uniforms'):
+            delattr(self, '_extra_uniforms')
 
     def draw_3d_cubes(self, cube_positions, unit=1.0, camera=None):
         # camera: dict with pos (x,y,z), yaw (deg), pitch (deg), fov

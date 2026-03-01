@@ -13,10 +13,15 @@ class SnakeGame:
         self.running = False
         self.grid_w = width // CELL
         self.grid_h = height // CELL
-        self.positions = [(self.grid_w//2, self.grid_h//2)]
-        self.dir = (1, 0)
-        self.next_dir = self.dir
-        self.grow = 3
+        self.unit = 1.0
+        # continuous 3D head position (centered at grid center)
+        self.head_pos = (0.0, 0.0, 0.0)
+        self.head_forward = (0.0, 0.0, -1.0)
+        self.speed = 6.0
+        self.segment_spacing = 0.5
+        # segments list of vec3 positions (head first)
+        self.segments = [(0.0, 0.0, 0.0)]
+        self.grow = 10
         self.food = None
         self.last_tick = time.time()
         self.tick_rate = 0.10
@@ -41,10 +46,14 @@ class SnakeGame:
 
     def place_food(self):
         while True:
-            x = random.randint(1, self.grid_w-2)
-            y = random.randint(1, self.grid_h-2)
-            if (x,y) not in self.positions:
-                self.food = (x,y)
+            gx = random.randint(1, self.grid_w-2)
+            gz = random.randint(1, self.grid_h-2)
+            # convert to world coords centered
+            wx = (gx - self.grid_w/2.0) * self.unit
+            wz = (gz - self.grid_h/2.0) * self.unit
+            pos = (wx, 0.0, wz)
+            if pos not in self.segments:
+                self.food = pos
                 return
 
     def start(self):
@@ -59,19 +68,31 @@ class SnakeGame:
 
         while self.running and not glfw.window_should_close(window):
             now = time.time()
-            # input: snake uses arrow keys, camera uses WASD/QE
-            if glfw.get_key(window, glfw.KEY_UP) == glfw.PRESS:
-                if self.dir != (0,1):
-                    self.next_dir = (0,1)
-            if glfw.get_key(window, glfw.KEY_DOWN) == glfw.PRESS:
-                if self.dir != (0,-1):
-                    self.next_dir = (0,-1)
+            # input: continuous movement controls
+            # left/right rotate, up/down forward/back
+            import math
+            yaw_speed = 90.0
             if glfw.get_key(window, glfw.KEY_LEFT) == glfw.PRESS:
-                if self.dir != (1,0):
-                    self.next_dir = (-1,0)
+                ang = math.radians(-yaw_speed * max(0.001, now - self.last_tick))
+                cx, cy, cz = self.head_forward
+                sx = cx * math.cos(ang) - cz * math.sin(ang)
+                sz = cx * math.sin(ang) + cz * math.cos(ang)
+                self.head_forward = (sx, cy, sz)
             if glfw.get_key(window, glfw.KEY_RIGHT) == glfw.PRESS:
-                if self.dir != (-1,0):
-                    self.next_dir = (1,0)
+                ang = math.radians(yaw_speed * max(0.001, now - self.last_tick))
+                cx, cy, cz = self.head_forward
+                sx = cx * math.cos(ang) - cz * math.sin(ang)
+                sz = cx * math.sin(ang) + cz * math.cos(ang)
+                self.head_forward = (sx, cy, sz)
+            # forward/back
+            acc = 0.0
+            if glfw.get_key(window, glfw.KEY_UP) == glfw.PRESS:
+                acc += 1.0
+            if glfw.get_key(window, glfw.KEY_DOWN) == glfw.PRESS:
+                acc -= 1.0
+            # update speed
+            self.speed += acc * 8.0 * max(0.001, now - self.last_tick)
+            self.speed = max(1.0, min(20.0, self.speed))
 
             # Camera navigation
             now_mouse = glfw.get_cursor_pos(window)
@@ -121,31 +142,32 @@ class SnakeGame:
                 self._shader_on = not self._shader_on
                 time.sleep(0.15)
 
-            # tick
-            if now - self.last_tick >= self.tick_rate:
-                self.last_tick = now
-                self.dir = self.next_dir
-                hx, hy = self.positions[0]
-                dx, dy = self.dir
-                nx = (hx + dx) % self.grid_w
-                ny = (hy + dy) % self.grid_h
-                new_head = (nx, ny)
-                if new_head in self.positions:
-                    # collision -> reset
-                    self.positions = [(self.grid_w//2, self.grid_h//2)]
-                    self.dir = (1,0)
-                    self.next_dir = self.dir
-                    self.grow = 3
-                    self.place_food()
+            # integrate head movement continuous
+            dt = max(0.0, now - self.last_tick)
+            hx, hy, hz = self.head_pos
+            fx, fy, fz = self.head_forward
+            # normalize forward
+            import math
+            fl = math.sqrt(fx*fx + fy*fy + fz*fz)
+            if fl == 0: fl = 1.0
+            fx, fy, fz = fx/fl, fy/fl, fz/fl
+            nx = hx + fx * self.speed * dt
+            ny = hy + fy * self.speed * dt
+            nz = hz + fz * self.speed * dt
+            self.head_pos = (nx, ny, nz)
+
+            # append segment if far enough
+            lx, ly, lz = self.segments[0]
+            dist = math.sqrt((nx-lx)**2 + (ny-ly)**2 + (nz-lz)**2)
+            if dist >= self.segment_spacing:
+                self.segments.insert(0, (nx, ny, nz))
+                if self.grow > 0:
+                    self.grow -= 1
                 else:
-                    self.positions.insert(0, new_head)
-                    if self.food and new_head == self.food:
-                        self.grow += 3
-                        self.place_food()
-                    if self.grow > 0:
-                        self.grow -= 1
-                    else:
-                        self.positions.pop()
+                    # trim to max segments
+                    maxlen = 128
+                    if len(self.segments) > maxlen:
+                        self.segments = self.segments[:maxlen]
 
             # render shader background
             t = time.time() - self.start_time
@@ -169,41 +191,48 @@ class SnakeGame:
                 gl.glClearColor(0.03, 0.03, 0.05, 1.0)
                 gl.glClear(gl.GL_COLOR_BUFFER_BIT | gl.GL_DEPTH_BUFFER_BIT)
 
-            # build 3D cube list from grid positions (centered around origin, X-Z plane)
-            cubes = []
-            offset_x = (self.grid_w / 2.0) * self.unit
-            offset_z = (self.grid_h / 2.0) * self.unit
-            for i, (x, y) in enumerate(self.positions):
-                wx = (x * self.unit) - offset_x
-                wz = (y * self.unit) - offset_z
-                wy = self.unit * 0.5
-                # color head brighter
-                if i == 0:
-                    col = (0.2, 1.0, 0.3)
-                else:
-                    col = (0.05, 0.6, 0.25)
-                cubes.append((wx, wy, wz, col))
-            if self.food:
-                fx, fy = self.food
-                wx = (fx * self.unit) - offset_x
-                wz = (fy * self.unit) - offset_z
-                wy = self.unit * 0.5
-                cubes.append((wx, wy, wz, (1.0, 0.2, 0.2)))
-
-            # draw 3D scene
+            # prepare uniforms for first/third-person shader rendering
             try:
-                self.renderer.draw_3d_cubes(cubes, unit=self.unit, camera=self.cam)
-            except Exception:
-                # fall back to orthographic overlay if 3D fails
-                rects = []
-                for x, y in self.positions:
-                    px = x * CELL
-                    py = y * CELL
-                    rects.append((px, py, CELL, CELL, (0.1, 0.9, 0.2)))
+                shader_path = __import__('os').path.join(__import__('os').path.dirname(__file__), '..', 'shaders', 'truchet_snake_fp.frag')
+                shader_path = __import__('os').path.normpath(shader_path)
+
+                # snake segments are world-space vec3 positions
+                sp = []
+                for s in self.segments:
+                    sp.append((float(s[0]), float(s[1]), float(s[2])))
+
+                # food is vec3
                 if self.food:
-                    fx, fy = self.food
-                    rects.append((fx*CELL, fy*CELL, CELL, CELL, (0.9, 0.2, 0.2)))
-                self.renderer.draw_rects(rects)
+                    food_v = (float(self.food[0]), float(self.food[1]), float(self.food[2]))
+                else:
+                    food_v = (0.0, -10.0, 0.0)
+
+                # camera third-person behind head
+                hx, hy, hz = self.head_pos
+                fx, fy, fz = self.head_forward
+                # normalize forward
+                import math
+                fl = math.sqrt(fx*fx + fy*fy + fz*fz)
+                if fl == 0: fl = 1.0
+                fxn, fyn, fzn = fx/fl, fy/fl, fz/fl
+                cam_dist = 3.0
+                cam_height = 1.2
+                cam_pos = (hx - fxn*cam_dist, hy + cam_height, hz - fzn*cam_dist)
+                cam_dir = (fxn, fyn, fzn)
+
+                self.renderer._extra_uniforms = {
+                    'uSnakeLen': int(len(sp)),
+                    'uSnake': sp,
+                    'uFood': food_v,
+                    'iCameraPos': cam_pos,
+                    'iCameraDir': cam_dir,
+                }
+
+                self.renderer.draw_shader_from_files(shader_path, time_sec=t, mouse=mouse)
+            except Exception:
+                from OpenGL import GL as gl
+                gl.glClearColor(0.03, 0.03, 0.05, 1.0)
+                gl.glClear(gl.GL_COLOR_BUFFER_BIT | gl.GL_DEPTH_BUFFER_BIT)
 
             glfw.poll_events()
             self.renderer.present()
