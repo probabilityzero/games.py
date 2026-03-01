@@ -33,6 +33,8 @@ class SnakeGame:
             'pitch': -35.0,
             'fov': 60.0,
         }
+        # aim camera at the scene origin so cubes are in front
+        self.cam['target'] = (0.0, 0.0, 0.0)
         self.mouse_last = (0.0, 0.0)
         self.rotating = False
         self.cam_speed = 6.0

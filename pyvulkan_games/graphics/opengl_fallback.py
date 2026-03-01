@@ -155,18 +155,23 @@ class OpenGLRenderer:
         gl.glPushMatrix()
         gl.glLoadIdentity()
         cx, cy, cz = camera.get('pos', (0,5,10))
-        yaw = camera.get('yaw', 0.0)
-        pitch = camera.get('pitch', 0.0)
-        import math
-        cyaw = math.radians(yaw)
-        cp = math.radians(pitch)
-        fx = math.cos(cp) * math.sin(cyaw)
-        fy = math.sin(cp)
-        fz = math.cos(cp) * math.cos(cyaw)
-        lx = cx + fx
-        ly = cy + fy
-        lz = cz + fz
-        glu.gluLookAt(cx, cy, cz, lx, ly, lz, 0.0, 1.0, 0.0)
+        # if a target is provided, look at it; otherwise compute from yaw/pitch
+        if 'target' in camera:
+            tx, ty, tz = camera['target']
+            glu.gluLookAt(cx, cy, cz, tx, ty, tz, 0.0, 1.0, 0.0)
+        else:
+            yaw = camera.get('yaw', 0.0)
+            pitch = camera.get('pitch', 0.0)
+            import math
+            cyaw = math.radians(yaw)
+            cp = math.radians(pitch)
+            fx = math.cos(cp) * math.sin(cyaw)
+            fy = math.sin(cp)
+            fz = math.cos(cp) * math.cos(cyaw)
+            lx = cx + fx
+            ly = cy + fy
+            lz = cz + fz
+            glu.gluLookAt(cx, cy, cz, lx, ly, lz, 0.0, 1.0, 0.0)
 
         # simple directional light as color tint
         gl.glColor3f(0.2, 0.9, 0.2)
