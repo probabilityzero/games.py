@@ -5,6 +5,8 @@ uniform float iTime;
 uniform int uSnakeLen;
 uniform vec3 uSnake[128];
 uniform vec3 uFood;
+uniform vec3 uStartPos;
+uniform vec3 uBackgroundColor;
 uniform vec3 iCameraPos;
 uniform vec3 iCameraDir;
 
@@ -23,12 +25,18 @@ float sdCapsule(vec3 p, vec3 a, vec3 b, float r){
 float mapScene(vec3 p){
     float d = 1e5;
     float r = 0.35; // snake radius
-    // snake segments as capsules between consecutive points
+    // snake segments as capsules between consecutive points with small wobble
     for(int i=0;i<127;i++){
         if(i+1 >= uSnakeLen) break;
         vec3 a = uSnake[i];
         vec3 b = uSnake[i+1];
-        float c = sdCapsule(p, a, b, r);
+        // wobble offset per-segment
+        float f = 3.0 + float(i)*0.12;
+        float amp = 0.06 + mod(float(i),4.0)*0.01;
+        vec3 off = vec3(sin(iTime*f + float(i))*amp, cos(iTime*(f*0.8) + float(i))*amp*0.5, 0.0);
+        vec3 a2 = a + off;
+        vec3 b2 = b + off;
+        float c = sdCapsule(p, a2, b2, r);
         if(c < d) d = c;
     }
     // tip sphere at head
@@ -42,6 +50,9 @@ float mapScene(vec3 p){
     // ground plane
     float ground = p.y + 1.0;
     d = min(d, ground);
+    // starting point marker (small sphere)
+    float spd = sdSphere(p - uStartPos, 0.18);
+    d = min(d, spd);
     return d;
 }
 
@@ -65,7 +76,7 @@ vec3 shade(vec3 ro, vec3 rd){
         t += d * 0.8;
         steps++;
     }
-    vec3 col = vec3(0.02, 0.02, 0.04);
+    vec3 col = uBackgroundColor;
     if(t < MAX_DIST){
         vec3 p = ro + rd * t;
         vec3 n = estimateNormal(p);
@@ -82,6 +93,13 @@ vec3 shade(vec3 ro, vec3 rd){
             col = base * (0.4 + 0.6*diff) + spec*0.5;
         }
     }
+    else {
+        // far background color
+        col = uBackgroundColor;
+    }
+    // if hit start marker, tint
+    float sdstart = sdSphere(ro + rd * t - uStartPos, 0.18);
+    if(abs(sdstart) < 0.02) col = mix(col, vec3(0.8,0.7,0.2), 0.9);
     return clamp(col, 0.0, 1.0);
 }
 

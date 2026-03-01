@@ -142,6 +142,18 @@ class SnakeGame:
                 self._shader_on = not self._shader_on
                 time.sleep(0.15)
 
+                # mouse-right steering: if right button pressed, use mouse dx to yaw head
+                right_pressed = glfw.get_mouse_button(window, glfw.MOUSE_BUTTON_RIGHT) == glfw.PRESS
+                if right_pressed:
+                    mx2, my2 = glfw.get_cursor_pos(window)
+                    dx = mx2 - self.mouse_last[0]
+                    ang = dx * 0.0025
+                    import math
+                    cx, cy, cz = self.head_forward
+                    sx = cx * math.cos(ang) - cz * math.sin(ang)
+                    sz = cx * math.sin(ang) + cz * math.cos(ang)
+                    self.head_forward = (sx, cy, sz)
+
             # integrate head movement continuous
             dt = max(0.0, now - self.last_tick)
             hx, hy, hz = self.head_pos
@@ -224,6 +236,8 @@ class SnakeGame:
                     'uSnakeLen': int(len(sp)),
                     'uSnake': sp,
                     'uFood': food_v,
+                    'uStartPos': (0.0, 0.0, 0.0),
+                    'uBackgroundColor': (0.03, 0.08, 0.12),
                     'iCameraPos': cam_pos,
                     'iCameraDir': cam_dir,
                 }

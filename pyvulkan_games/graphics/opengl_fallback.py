@@ -290,9 +290,24 @@ void main(){ gl_Position = gl_Vertex; }
     def _try_init_glut(self):
         try:
             from OpenGL import GLUT as glut
-            return glut
         except Exception:
             return None
+
+        if getattr(self, '_glut_inited', False):
+            return glut
+
+        try:
+            # initialize GLUT once for bitmap font use
+            glut.glutInit()
+        except Exception:
+            try:
+                import sys
+                glut.glutInit(sys.argv)
+            except Exception:
+                return None
+
+        self._glut_inited = True
+        return glut
 
     def draw_text(self, x, y, text, size=18, color=(1.0,1.0,1.0)):
         glut = self._try_init_glut()
