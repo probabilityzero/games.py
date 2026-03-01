@@ -7,11 +7,12 @@ def main():
     print("q) Quit")
     choice = input("Choose game: ")
     if choice.strip() == '1':
-        App().run()
+        from .snake.game import SnakeGame
+        SnakeGame(800, 600).start()
     elif choice.strip() == '2':
         from .graphics import OpenGLRenderer
         from .pong.prototype import PongPrototype
-        from .snake.prototype import SnakePrototype
+        from .snake.game import SnakeGame
         render = OpenGLRenderer(800, 600)
         render.init_window()
         pong = PongPrototype(800, 600)
@@ -22,7 +23,7 @@ def main():
             start = time.time()
             glfw.poll_events()
             if glfw.get_key(render.window, glfw.KEY_W) == glfw.PRESS:
-                pong.move_left(-8)
+                pong.move_left(s-8)
             if glfw.get_key(render.window, glfw.KEY_S) == glfw.PRESS:
                 pong.move_left(8)
             if glfw.get_key(render.window, glfw.KEY_UP) == glfw.PRESS:
